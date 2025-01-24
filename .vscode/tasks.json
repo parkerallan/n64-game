@@ -1,0 +1,35 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+      {
+        "label": "Build ROM",
+        "type": "shell",
+        "command": "make",
+        "group": {
+            "kind": "build",
+            "isDefault": true
+        },
+        "problemMatcher": ["$gcc"]
+      },
+      {
+        "label": "Clean Build",
+        "type": "shell",
+        "command": "make clean",
+        "group": {
+            "kind": "build",
+            "isDefault": true
+        },
+        "problemMatcher": ["$gcc"]
+      },
+      {
+        "label": "Run ROM",
+        "type": "shell",
+        "command": "D:/ares/ares.exe D:/catadventure/catadventure.z64",
+        "group": {
+            "kind": "test",
+            "isDefault": true
+        },
+        "problemMatcher": []
+      }
+  ]
+}
