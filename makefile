@@ -7,6 +7,7 @@ BUILD_DIR = build
 SRC_DIR = code
 
 SRC = $(SRC_DIR)/main.c
+#SRC += $(SRC_DIR)/example.c
 
 # Toolchain paths
 include $(N64_INST)/include/n64.mk
