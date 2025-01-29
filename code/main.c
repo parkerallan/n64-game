@@ -1,6 +1,7 @@
 #include <libdragon.h>
 
 #define PLAYER_SPEED 2.0f
+#define SCREEN_TIME_TICKS (2 * TICKS_PER_SECOND)
 
 sprite_t *libdr_title;
 sprite_t *tiny3D_title;
@@ -8,6 +9,7 @@ sprite_t *startscreen;
 
 int state;
 bool isGameStarted = false;
+u_uint32_t last_time;
 
 struct main_menu {
     int pos;
@@ -38,29 +40,8 @@ static char *title_sprites[] = {
     "rom:/startscreen.sprite",
 };
 
-void display_start_menu(surface_t* disp, struct main_menu *menu) {
-    for (int i = 0; i < menu->num_items; i++) {
-        if (i == menu->pos) {
-            graphics_draw_text(disp, 10, 10 + i * 20, ">");
-        }
-        graphics_draw_text(disp, 20, 10 + i * 20, menu->items[i]);
-    }
-}
-
 void handle_start_menu_input(struct main_menu *menu, joypad_buttons_t button) {
-    if (button.d_down) {
-        menu->pos = (menu->pos + 1) % menu->num_items;
-    } else if (button.d_up) {
-        menu->pos = (menu->pos - 1 + menu->num_items) % menu->num_items;
-    } else if (button.a || button.start) {
-        if (menu->pos == 0) {
-            isGameStarted = true;
-            // Continue
-        } else if (menu->pos == 1) {
-            isGameStarted = true;
-            // New Game
-        }
-    }
+
 }
 
 int main(void) {
@@ -79,6 +60,7 @@ int main(void) {
     startscreen = sprite_load(title_sprites[2]);
 
     state = 0;
+    last_time = timer_ticks();
 
     // rdpq_init();
     // rdpq_debug_start();
@@ -90,30 +72,70 @@ int main(void) {
 
         joypad_poll();
         
-        if (joypad_is_connected(JOYPAD_PORT_1)) {
-            joypad_buttons_t button = joypad_get_buttons_pressed(JOYPAD_PORT_1);
-            
-            if (state == 0) {
-                graphics_draw_sprite_trans(disp, 0, 0, libdr_title);
-                if (button.a || button.start) {
-                    state = 1;
+        uint32_t current_time = timer_ticks();
+        if (current_time - last_time > SCREEN_TIME_TICKS) {
+            last_time = current_time; // Reset the timer
+            state++; // Move to the next state
+            if (state > 3) {
+                state = 3; // Stay on the last state
+            }
+        }
+
+        joypad_buttons_t button = joypad_get_buttons_pressed(JOYPAD_PORT_1);
+        
+        if (state == 0) {
+            graphics_draw_sprite_trans(disp, 0, 0, libdr_title);
+            if (button.a || button.start) {
+                state = 1;
+                last_time = timer_ticks();
+            }
+        } else if (state == 1) {
+            graphics_draw_sprite_trans(disp, 0, 0, tiny3D_title);
+            if (button.a || button.start) {
+                state = 2;
+                last_time = timer_ticks();
+            }
+        } else if (state == 2) {
+            graphics_draw_sprite_trans(disp, 0, 0, startscreen);
+            if (button.a || button.start) {
+                state = 3;
+                last_time = timer_ticks();
+            }
+        } 
+        
+        if (state == 3) {
+            for (int i = 0; i < menu.num_items; i++) {
+                if (i == menu.pos) {
+                    graphics_set_color(
+                        graphics_make_color(0, 255, 0, 0),
+                        graphics_make_color(0, 0, 0, 0)
+                    );
+                } else {
+                    graphics_set_color(
+                        graphics_make_color(0, 0, 0, 0),
+                        graphics_make_color(0, 0, 0, 0)
+                    );
                 }
-            } else if (state == 1) {
-                graphics_draw_sprite_trans(disp, 0, 0, tiny3D_title);
-                if (button.a || button.start) {
-                    state = 2;
-                }
-            } else if (state == 2) {
-                graphics_draw_sprite_trans(disp, 0, 0, startscreen);
-                if (button.a || button.start) {
-                    state = 3;
-                }
-            } else if (state == 3) {
-                if (button.start) {
-                    // display_start_menu(disp, &menu);
-                    // handle_start_menu_input(&menu, button);
+                graphics_draw_text(disp, 130, 200 + i * 20, menu.items[i]);
+            }
+
+            if (button.d_down) {
+                menu.pos = (menu.pos + 1) % menu.num_items;
+            } else if (button.d_up) {
+                menu.pos = (menu.pos - 1 + menu.num_items) % menu.num_items;
+            } else if (button.a || button.start) {
+                if (menu.pos == 0) {
+                    isGameStarted = true;
+                    // Continue
+                } else if (menu.pos == 1) {
+                    isGameStarted = true;
+                    // New Game
                 }
             }
+        }
+
+        if (isGameStarted) {
+            // 3d setup, model and game mechanics
         }
     }
 }
