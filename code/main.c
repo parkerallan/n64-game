@@ -1,4 +1,10 @@
 #include <libdragon.h>
+#include <t3d/t3d.h>
+#include <t3d/t3dmath.h>
+#include <t3d/t3dmodel.h>
+#include <t3d/t3dskeleton.h>
+#include <t3d/t3danim.h>
+#include <t3d/t3ddebug.h>
 
 #define PLAYER_SPEED 2.0f
 #define SCREEN_TIME_TICKS (2 * TICKS_PER_SECOND)
@@ -7,8 +13,12 @@ sprite_t *libdr_title;
 sprite_t *tiny3D_title;
 sprite_t *startscreen;
 
+surface_t *depthBuffer;
+T3DModel *block;
+T3DViewport viewport;
+
 int state;
-bool isGameStarted = false;
+bool isGameStarted;
 u_uint32_t last_time;
 
 struct main_menu {
@@ -29,6 +39,7 @@ struct main_menu menu = {
 struct player {
     int pos_x;
     int pos_y;
+    int pos_z;
     int width;
     int height;
     int length;
@@ -44,6 +55,14 @@ void handle_start_menu_input(struct main_menu *menu, joypad_buttons_t button) {
 
 }
 
+T3DVec3 camPos = {{20.0f, -20.0f, 20.0f}};
+T3DVec3 camTarget = {{0.0f, 0.0f, 0.0f}};
+
+uint8_t colorAmbient[4] = {80, 80, 100, 0xFF};
+uint8_t colorDir[4]     = {0xEE, 0xAA, 0xAA, 0xFF};
+
+T3DVec3 lightDirVec = {{-1.0f, 1.0f, 1.0f}};
+
 int main(void) {
 
     debug_init_isviewer();
@@ -52,19 +71,24 @@ int main(void) {
     timer_init();
     console_init();
 
-	display_init(RESOLUTION_320x240, DEPTH_16_BPP, 2, GAMMA_NONE, FILTERS_RESAMPLE);
+	display_init(RESOLUTION_640x480, DEPTH_16_BPP, 2, GAMMA_NONE, FILTERS_RESAMPLE);
 	dfs_init(DFS_DEFAULT_LOCATION);
+    t3d_init((T3DInitParams){});
+    rdpq_init();
+    rdpq_debug_start();
 
 	libdr_title = sprite_load(title_sprites[0]);
     tiny3D_title = sprite_load(title_sprites[1]);
     startscreen = sprite_load(title_sprites[2]);
 
-    state = 0;
-    last_time = timer_ticks();
+    t3d_vec3_norm(&lightDirVec);
+    block = t3d_model_load("rom:/block.t3dm");
+    depthBuffer = display_get_zbuf();
+    viewport = t3d_viewport_create();
 
-    // rdpq_init();
-    // rdpq_debug_start();
-    // rdpq_debug_end();
+    state = 0;
+    isGameStarted = false;
+    last_time = timer_ticks();
 
 	while (1) {
         surface_t* disp = display_get();
@@ -135,7 +159,36 @@ int main(void) {
         }
 
         if (isGameStarted) {
-            // 3d setup, model and game mechanics
+
+            t3d_viewport_set_projection(&viewport, T3D_DEG_TO_RAD(90.0f), 20.0f, 160.0f);
+            t3d_viewport_look_at(&viewport, &camPos, &camTarget, &(T3DVec3){{0,1,0}});
+
+            rdpq_attach(display_get(), display_get_zbuf());
+
+            t3d_frame_start();
+            t3d_viewport_attach(&viewport);
+
+            t3d_screen_clear_color(RGBA32(100, 80, 80, 0xFF));
+            t3d_screen_clear_depth();
+
+            t3d_light_set_ambient(colorAmbient);
+            t3d_light_set_directional(0, colorDir, &lightDirVec);
+            t3d_light_set_count(1);
+
+            t3d_model_draw(block);
+            rdpq_detach_show();
+
+            joypad_buttons_t button = joypad_get_buttons(JOYPAD_PORT_1);
+            
+            if(button.c_right) {
+                camPos.x += PLAYER_SPEED;
+            } else if(button.c_left) {
+                camPos.x -= PLAYER_SPEED;
+            } else if(button.c_up) {
+                camPos.y += PLAYER_SPEED;
+            } else if(button.c_down) {
+                camPos.y -= PLAYER_SPEED;
+            }
         }
     }
 }
