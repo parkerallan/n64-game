@@ -27,7 +27,10 @@ endif
 
 # Asset conversion rules
 assets_png = $(wildcard assets/*.png)
-assets_conv = $(addprefix filesystem/,$(notdir $(assets_png:%.png=%.sprite)))
+assets_png_conv = $(addprefix filesystem/,$(notdir $(assets_png:%.png=%.sprite)))
+
+assets_glb = $(wildcard assets/*.glb)
+assets_glb_conv = $(addprefix filesystem/,$(notdir $(assets_glb:%.glb=%.t3dm)))
 
 filesystem/%.sprite: assets/%.png
 	@mkdir -p $(dir $@)
@@ -67,7 +70,7 @@ filesystem/%.desc: assets/%.txt
 # Build rules
 all: $(ROMNAME).z64
 
-$(BUILD_DIR)/$(ROMNAME).dfs: $(assets_conv)
+$(BUILD_DIR)/$(ROMNAME).dfs: $(assets_png_conv) $(assets_glb_conv)
 $(BUILD_DIR)/$(ROMNAME).elf: $(SRC:%.c=$(BUILD_DIR)/%.o)
 
 $(ROMNAME).z64: N64_ROM_TITLE=$(ROMTITLE)
