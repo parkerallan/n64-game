@@ -12,6 +12,8 @@
 sprite_t *libdr_title;
 sprite_t *tiny3D_title;
 sprite_t *startscreen;
+wav64_t gamestart;
+wav64_t titlesong;
 
 surface_t *depthBuffer;
 T3DModel *block;
@@ -19,6 +21,7 @@ T3DViewport viewport;
 
 int state;
 bool isGameStarted;
+bool isPaused;
 u_uint32_t last_time;
 
 struct main_menu {
@@ -45,12 +48,6 @@ struct player {
     int length;
 };
 
-static char *title_sprites[] = {
-    "rom:/libdragon.sprite",
-    "rom:/tiny3d.sprite",
-    "rom:/startscreen.sprite",
-};
-
 void handle_start_menu_input(struct main_menu *menu, joypad_buttons_t button) {
 
 }
@@ -61,26 +58,33 @@ T3DVec3 camTarget = {{0.0f, 0.0f, 0.0f}};
 uint8_t colorAmbient[4] = {80, 80, 100, 0xFF};
 uint8_t colorDir[4]     = {0xEE, 0xAA, 0xAA, 0xFF};
 
-T3DVec3 lightDirVec = {{-1.0f, 1.0f, 1.0f}};
+T3DVec3 lightDirVec = {{1.0f, 1.0f, 1.0f}};
 
-int main(void) {
-
+void initialize() {
     debug_init_isviewer();
     debug_init_usblog();
-    joypad_init();
     timer_init();
     console_init();
+    joypad_init();
+    audio_init(48000, 4);
+    mixer_init(20);
 
-	display_init(RESOLUTION_640x480, DEPTH_16_BPP, 2, GAMMA_NONE, FILTERS_RESAMPLE);
+	display_init(RESOLUTION_640x480, DEPTH_16_BPP, 3, GAMMA_NONE, FILTERS_RESAMPLE_ANTIALIAS_DEDITHER);
 	dfs_init(DFS_DEFAULT_LOCATION);
     t3d_init((T3DInitParams){});
     rdpq_init();
     rdpq_debug_start();
 
-	libdr_title = sprite_load(title_sprites[0]);
-    tiny3D_title = sprite_load(title_sprites[1]);
-    startscreen = sprite_load(title_sprites[2]);
+    libdr_title = sprite_load("rom:/libdragon.sprite");
+    tiny3D_title = sprite_load("rom:/tiny3d.sprite");
+    startscreen = sprite_load("rom:/startscreen.sprite");
+    wav64_open(&gamestart, "rom:/gamestart.wav64");
+    wav64_open(&titlesong, "rom:/pianoanime.wav64");
+}
 
+int main(void) {
+    initialize();
+    
     t3d_vec3_norm(&lightDirVec);
     block = t3d_model_load("rom:/block.t3dm");
     depthBuffer = display_get_zbuf();
@@ -96,6 +100,16 @@ int main(void) {
 
         joypad_poll();
         
+        if (audio_can_write()) {
+            // Select an audio buffer that we can write to
+            short *buf = audio_write_begin();
+            // Write to the audio buffer from the mixer
+            mixer_poll(buf, audio_get_buffer_length());
+            // Tell the audio system that the buffer has
+            // been filled and is ready for playback
+            audio_write_end();
+	    }
+
         uint32_t current_time = timer_ticks();
         if (current_time - last_time > SCREEN_TIME_TICKS) {
             last_time = current_time; // Reset the timer
@@ -107,19 +121,23 @@ int main(void) {
 
         joypad_buttons_t button = joypad_get_buttons_pressed(JOYPAD_PORT_1);
         
-        if (state == 0) {
-            graphics_draw_sprite_trans(disp, 0, 0, libdr_title);
+        if (state == 0 && !isGameStarted) {
+            wav64_play(&gamestart, 0);
+            graphics_draw_sprite_trans(disp, 160, 120, libdr_title);
             if (button.a || button.start) {
+                sprite_free(libdr_title);
                 state = 1;
                 last_time = timer_ticks();
             }
-        } else if (state == 1) {
-            graphics_draw_sprite_trans(disp, 0, 0, tiny3D_title);
+        } else if (state == 1 && !isGameStarted) {
+            graphics_draw_sprite_trans(disp, 160, 120, tiny3D_title);
             if (button.a || button.start) {
+                sprite_free(tiny3D_title);
                 state = 2;
                 last_time = timer_ticks();
             }
-        } else if (state == 2) {
+        } else if (state == 2 && !isGameStarted) {
+            wav64_play(&titlesong, 1);
             graphics_draw_sprite_trans(disp, 0, 0, startscreen);
             if (button.a || button.start) {
                 state = 3;
@@ -127,7 +145,7 @@ int main(void) {
             }
         } 
         
-        if (state == 3) {
+        if (state == 3 && !isGameStarted) {
             for (int i = 0; i < menu.num_items; i++) {
                 if (i == menu.pos) {
                     graphics_set_color(
@@ -151,9 +169,11 @@ int main(void) {
                 if (menu.pos == 0) {
                     isGameStarted = true;
                     // Continue
+                    wav64_close(&titlesong);
                 } else if (menu.pos == 1) {
                     isGameStarted = true;
                     // New Game
+                    wav64_close(&titlesong);
                 }
             }
         }
@@ -189,6 +209,11 @@ int main(void) {
             } else if(button.c_down) {
                 camPos.y -= PLAYER_SPEED;
             }
+
+            // if (button.start) {
+            //     isGameStarted = false;
+            //     isPaused = true;
+            // }
         }
     }
 }
