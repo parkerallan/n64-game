@@ -32,6 +32,9 @@ assets_png_conv = $(addprefix filesystem/,$(notdir $(assets_png:%.png=%.sprite))
 assets_glb = $(wildcard assets/*.glb)
 assets_glb_conv = $(addprefix filesystem/,$(notdir $(assets_glb:%.glb=%.t3dm)))
 
+assets_mp3 = $(wildcard assets/*.mp3)
+assets_mp3_conv = $(addprefix filesystem/,$(notdir $(assets_mp3:%.mp3=%.wav64)))
+
 filesystem/%.sprite: assets/%.png
 	@mkdir -p $(dir $@)
 	@echo "    [SPRITE] $@"
@@ -70,7 +73,7 @@ filesystem/%.desc: assets/%.txt
 # Build rules
 all: $(ROMNAME).z64
 
-$(BUILD_DIR)/$(ROMNAME).dfs: $(assets_png_conv) $(assets_glb_conv)
+$(BUILD_DIR)/$(ROMNAME).dfs: $(assets_png_conv) $(assets_glb_conv) $(assets_mp3_conv)
 $(BUILD_DIR)/$(ROMNAME).elf: $(SRC:%.c=$(BUILD_DIR)/%.o)
 
 $(ROMNAME).z64: N64_ROM_TITLE=$(ROMTITLE)
