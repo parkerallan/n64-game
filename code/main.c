@@ -5,8 +5,14 @@
 #include <t3d/t3dskeleton.h>
 #include <t3d/t3danim.h>
 #include <t3d/t3ddebug.h>
+#include <math.h>
+#include "startup.h"
+#include "game.h"
 
-#define PLAYER_SPEED 2.0f
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
 #define SCREEN_TIME_TICKS (2 * TICKS_PER_SECOND)
 
 sprite_t *libdr_title;
@@ -16,49 +22,30 @@ wav64_t gamestart;
 wav64_t titlesong;
 
 surface_t *depthBuffer;
-T3DModel *block;
-T3DViewport viewport;
 
-int state;
+startup_state_t startup_state;
 bool isGameStarted;
 bool isPaused;
 u_uint32_t last_time;
 
-struct main_menu {
-    int pos;
-    int num_items;
-    char *items[];
-};
-
-struct main_menu menu = {
-    .pos = 0,
-    .num_items = 2,
-    .items = {
-        "Continue",
-        "New Game",
-    },
-};
-
 struct player {
-    int pos_x;
-    int pos_y;
-    int pos_z;
-    int width;
-    int height;
-    int length;
+    T3DVec3 position;
+    float rotation_y;  // Y-axis rotation for turning
+    float move_speed;
+    float turn_speed;
 };
 
 void handle_start_menu_input(struct main_menu *menu, joypad_buttons_t button) {
 
 }
 
-T3DVec3 camPos = {{20.0f, -20.0f, 20.0f}};
-T3DVec3 camTarget = {{0.0f, 0.0f, 0.0f}};
+// Enhanced lighting for dungeon atmosphere
+uint8_t colorAmbient[4] = {30, 30, 50, 0xFF};      // Dark blue ambient
+uint8_t colorDir[4]     = {200, 180, 120, 0xFF};   // Warm directional light
+uint8_t colorDir2[4]    = {50, 100, 150, 0xFF};    // Cool secondary light
 
-uint8_t colorAmbient[4] = {80, 80, 100, 0xFF};
-uint8_t colorDir[4]     = {0xEE, 0xAA, 0xAA, 0xFF};
-
-T3DVec3 lightDirVec = {{1.0f, 1.0f, 1.0f}};
+T3DVec3 lightDirVec = {{0.3f, -0.8f, 0.5f}};       // Main light from above-forward
+T3DVec3 lightDirVec2 = {{-0.5f, 0.2f, -0.3f}};     // Secondary light for shadows
 
 void initialize() {
     debug_init_isviewer();
@@ -85,12 +72,16 @@ void initialize() {
 int main(void) {
     initialize();
     
+    // Initialize lighting vectors
     t3d_vec3_norm(&lightDirVec);
-    block = t3d_model_load("rom:/block.t3dm");
+    t3d_vec3_norm(&lightDirVec2);
+    
+    // Initialize tunnel scene
+    tunnel_scene_init();
+    
     depthBuffer = display_get_zbuf();
-    viewport = t3d_viewport_create();
 
-    state = 0;
+    startup_state = STARTUP_LIBDRAGON_LOGO;
     isGameStarted = false;
     last_time = timer_ticks();
 
@@ -110,105 +101,21 @@ int main(void) {
             audio_write_end();
 	    }
 
-        uint32_t current_time = timer_ticks();
-        if (current_time - last_time > SCREEN_TIME_TICKS) {
-            last_time = current_time; // Reset the timer
-            state++; // Move to the next state
-            if (state > 3) {
-                state = 3; // Stay on the last state
-            }
-        }
-
         joypad_buttons_t button = joypad_get_buttons_pressed(JOYPAD_PORT_1);
         
-        if (state == 0 && !isGameStarted) {
-            wav64_play(&gamestart, 0);
-            graphics_draw_sprite_trans(disp, 160, 120, libdr_title);
-            if (button.a || button.start) {
-                sprite_free(libdr_title);
-                state = 1;
-                last_time = timer_ticks();
-            }
-        } else if (state == 1 && !isGameStarted) {
-            graphics_draw_sprite_trans(disp, 160, 120, tiny3D_title);
-            if (button.a || button.start) {
-                sprite_free(tiny3D_title);
-                state = 2;
-                last_time = timer_ticks();
-            }
-        } else if (state == 2 && !isGameStarted) {
-            wav64_play(&titlesong, 1);
-            graphics_draw_sprite_trans(disp, 0, 0, startscreen);
-            if (button.a || button.start) {
-                state = 3;
-                last_time = timer_ticks();
-            }
-        } 
-        
-        if (state == 3 && !isGameStarted) {
-            for (int i = 0; i < menu.num_items; i++) {
-                if (i == menu.pos) {
-                    graphics_set_color(
-                        graphics_make_color(0, 255, 0, 0),
-                        graphics_make_color(0, 0, 0, 0)
-                    );
-                } else {
-                    graphics_set_color(
-                        graphics_make_color(0, 0, 0, 0),
-                        graphics_make_color(0, 0, 0, 0)
-                    );
-                }
-                graphics_draw_text(disp, 130, 200 + i * 20, menu.items[i]);
-            }
-
-            if (button.d_down) {
-                menu.pos = (menu.pos + 1) % menu.num_items;
-            } else if (button.d_up) {
-                menu.pos = (menu.pos - 1 + menu.num_items) % menu.num_items;
-            } else if (button.a || button.start) {
-                if (menu.pos == 0) {
-                    isGameStarted = true;
-                    // Continue
-                    wav64_close(&titlesong);
-                } else if (menu.pos == 1) {
-                    isGameStarted = true;
-                    // New Game
-                    wav64_close(&titlesong);
-                }
-            }
+        if (!isGameStarted) {
+            isGameStarted = handle_startup_sequence(disp, button, &startup_state, &last_time);
         }
 
         if (isGameStarted) {
-
-            t3d_viewport_set_projection(&viewport, T3D_DEG_TO_RAD(90.0f), 20.0f, 160.0f);
-            t3d_viewport_look_at(&viewport, &camPos, &camTarget, &(T3DVec3){{0,1,0}});
-
-            rdpq_attach(display_get(), display_get_zbuf());
-
-            t3d_frame_start();
-            t3d_viewport_attach(&viewport);
-
-            t3d_screen_clear_color(RGBA32(100, 80, 80, 0xFF));
-            t3d_screen_clear_depth();
-
-            t3d_light_set_ambient(colorAmbient);
-            t3d_light_set_directional(0, colorDir, &lightDirVec);
-            t3d_light_set_count(1);
-
-            t3d_model_draw(block);
-            rdpq_detach_show();
-
-            joypad_buttons_t button = joypad_get_buttons(JOYPAD_PORT_1);
+            // Get continuous button input for smooth movement
+            joypad_buttons_t continuous_button = joypad_get_buttons(JOYPAD_PORT_1);
             
-            if(button.c_right) {
-                camPos.x += PLAYER_SPEED;
-            } else if(button.c_left) {
-                camPos.x -= PLAYER_SPEED;
-            } else if(button.c_up) {
-                camPos.y += PLAYER_SPEED;
-            } else if(button.c_down) {
-                camPos.y -= PLAYER_SPEED;
-            }
+            // Update tunnel scene
+            tunnel_scene_update(continuous_button);
+            
+            // Render tunnel scene
+            tunnel_scene_render();
 
             // if (button.start) {
             //     isGameStarted = false;
