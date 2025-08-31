@@ -1,12 +1,12 @@
-ROMNAME = catadventure
-ROMTITLE = "CAT ADVENTURE 64"
+ROMNAME = cypher
+ROMTITLE = "CYPHER 64"
 FINAL = 0
 DEBUG = 1
 
 BUILD_DIR = build
 SRC_DIR = code
 
-SRC = $(SRC_DIR)/main.c
+SRC = $(SRC_DIR)/main.c $(SRC_DIR)/startup.c $(SRC_DIR)/game.c
 #SRC += $(SRC_DIR)/example.c
 
 # Toolchain paths

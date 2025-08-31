@@ -4,7 +4,13 @@
       {
         "label": "Build ROM",
         "type": "shell",
-        "command": "make",
+        "command": "cd /d/n64game && make",
+        "options": {
+          "shell": {
+            "executable": "C:\\msys64\\usr\\bin\\bash.exe",
+            "args": ["-l", "-c"]
+          }
+        },
         "group": {
             "kind": "build",
             "isDefault": true
@@ -14,7 +20,13 @@
       {
         "label": "Clean Build",
         "type": "shell",
-        "command": "make clean",
+        "command": "cd /d/n64game && make clean",
+        "options": {
+          "shell": {
+            "executable": "C:\\msys64\\usr\\bin\\bash.exe",
+            "args": ["-l", "-c"]
+          }
+        },
         "group": {
             "kind": "build",
             "isDefault": true
@@ -24,7 +36,7 @@
       {
         "label": "Run ROM",
         "type": "shell",
-        "command": "D:/ares/ares.exe D:/catadventure/catadventure.z64",
+        "command": "D:/ares/ares.exe D:/n64game/cypher.z64",
         "group": {
             "kind": "test",
             "isDefault": true
