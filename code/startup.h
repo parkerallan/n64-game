@@ -26,6 +26,7 @@ struct main_menu {
 extern struct main_menu menu;
 
 // Function declarations
+void startup_init_fonts(void);
 bool handle_startup_sequence(surface_t* disp, joypad_buttons_t button, startup_state_t* state, u_uint32_t* last_time);
 bool handle_main_menu(surface_t* disp, joypad_buttons_t button);
 

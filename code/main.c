@@ -62,11 +62,14 @@ void initialize() {
     rdpq_init();
     rdpq_debug_start();
 
-    libdr_title = sprite_load("rom:/libdragon.sprite");
-    tiny3D_title = sprite_load("rom:/tiny3d.sprite");
-    startscreen = sprite_load("rom:/startscreen.sprite");
-    wav64_open(&gamestart, "rom:/gamestart.wav64");
-    wav64_open(&titlesong, "rom:/pianoanime.wav64");
+    //libdr_title = sprite_load("rom:/libdragon.sprite");
+    //tiny3D_title = sprite_load("rom:/tiny3d.sprite");
+    //startscreen = sprite_load("rom:/startscreen.sprite");
+    //wav64_open(&gamestart, "rom:/gamestart.wav64");
+    //wav64_open(&titlesong, "rom:/pianoanime.wav64");
+    
+    // Initialize fonts for menu
+    startup_init_fonts();
 }
 
 int main(void) {
@@ -81,13 +84,14 @@ int main(void) {
     
     depthBuffer = display_get_zbuf();
 
-    startup_state = STARTUP_LIBDRAGON_LOGO;
-    isGameStarted = false;
-    last_time = timer_ticks();
+    // startup_state = STARTUP_LIBDRAGON_LOGO;
+    // isGameStarted = false;
+    // last_time = timer_ticks();
+
+    isGameStarted = true; //debug disabling startup
 
 	while (1) {
         surface_t* disp = display_get();
-		display_show(disp);
 
         joypad_poll();
         
@@ -100,6 +104,9 @@ int main(void) {
             // been filled and is ready for playback
             audio_write_end();
 	    }
+	    
+	    // Ensure audio playback coordination
+	    mixer_try_play();
 
         joypad_buttons_t button = joypad_get_buttons_pressed(JOYPAD_PORT_1);
         
@@ -110,17 +117,16 @@ int main(void) {
         if (isGameStarted) {
             // Get continuous button input for smooth movement
             joypad_buttons_t continuous_button = joypad_get_buttons(JOYPAD_PORT_1);
+            joypad_inputs_t continuous_inputs = joypad_get_inputs(JOYPAD_PORT_1);
             
             // Update tunnel scene
-            tunnel_scene_update(continuous_button);
+            tunnel_scene_update(continuous_button, continuous_inputs);
             
             // Render tunnel scene
             tunnel_scene_render();
-
-            // if (button.start) {
-            //     isGameStarted = false;
-            //     isPaused = true;
-            // }
         }
+        
+        // Show the completed frame
+        display_show(disp);
     }
 }
